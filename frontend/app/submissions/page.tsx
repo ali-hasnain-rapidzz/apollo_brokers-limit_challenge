@@ -31,7 +31,6 @@ import { useSubmissionsList } from '@/lib/hooks/useSubmissions';
 import { BrokerAutocomplete } from './BrokerAutocomplete';
 import { SubmissionListItem, SubmissionPriority, SubmissionStatus } from '@/lib/types';
 
-
 const STATUS_OPTIONS: { label: string; value: SubmissionStatus | '' }[] = [
   { label: 'All statuses', value: '' },
   { label: 'New', value: 'new' },
@@ -182,8 +181,8 @@ function SubmissionsContent() {
   useEffect(() => {
     const timer = setTimeout(() => updateParam('companySearch', companyInput), 400);
     return () => clearTimeout(timer);
-  // updateParam is redefined each render but its deps (searchParams, router, pathname) are stable
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // updateParam is redefined each render but its deps (searchParams, router, pathname) are stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyInput]);
 
   const filters = {
@@ -251,6 +250,9 @@ function SubmissionsContent() {
 
             <Divider sx={{ my: 2 }} />
 
+            {/* Native date inputs used here to avoid pulling in @mui/x-date-pickers.
+                Cross-browser rendering is inconsistent — notably Safari renders a plain text field.
+                Should be replaced with MUI DatePicker + dayjs adapter before production use. */}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
               <TextField
                 label="Created from"
