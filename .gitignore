@@ -1,2 +1,8 @@
 # Personal notes
 Ali_docs/
+
+# Python
+backend/.venv/
+backend/db.sqlite3
+**/__pycache__/
+*.pyc
