@@ -1,21 +1,33 @@
 'use client';
 
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
+  Alert,
   Box,
   Card,
   CardContent,
+  Chip,
   Container,
-  Divider,
   MenuItem,
+  Pagination,
+  Paper,
+  Skeleton,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
 
-import { useBrokerOptions } from '@/lib/hooks/useBrokerOptions';
 import { useSubmissionsList } from '@/lib/hooks/useSubmissions';
-import { SubmissionStatus } from '@/lib/types';
+import { BrokerAutocomplete } from './BrokerAutocomplete';
+import { SubmissionListItem, SubmissionPriority, SubmissionStatus } from '@/lib/types';
+
 
 const STATUS_OPTIONS: { label: string; value: SubmissionStatus | '' }[] = [
   { label: 'All statuses', value: '' },
@@ -25,36 +37,188 @@ const STATUS_OPTIONS: { label: string; value: SubmissionStatus | '' }[] = [
   { label: 'Lost', value: 'lost' },
 ];
 
-export default function SubmissionsPage() {
-  const [status, setStatus] = useState<SubmissionStatus | ''>('');
-  const [brokerId, setBrokerId] = useState('');
-  const [companyQuery, setCompanyQuery] = useState('');
+const STATUS_COLOR: Record<SubmissionStatus, 'primary' | 'warning' | 'success' | 'error'> = {
+  new: 'primary',
+  in_review: 'warning',
+  closed: 'success',
+  lost: 'error',
+};
 
-  const filters = useMemo(
-    () => ({
-      status: status || undefined,
-      brokerId: brokerId || undefined,
-      companySearch: companyQuery || undefined,
-    }),
-    [status, brokerId, companyQuery],
+const STATUS_LABEL: Record<SubmissionStatus, string> = {
+  new: 'New',
+  in_review: 'In Review',
+  closed: 'Closed',
+  lost: 'Lost',
+};
+
+const PRIORITY_COLOR: Record<SubmissionPriority, 'error' | 'warning' | 'info'> = {
+  high: 'error',
+  medium: 'warning',
+  low: 'info',
+};
+
+const PAGE_SIZE = 10;
+
+function SubmissionRow({ row }: { row: SubmissionListItem }) {
+  const router = useRouter();
+
+  return (
+    <TableRow
+      hover
+      onClick={() => router.push(`/submissions/${row.id}`)}
+      sx={{ cursor: 'pointer' }}
+    >
+      <TableCell>
+        <Typography variant="body2" fontWeight={500}>
+          {row.company.legalName}
+        </Typography>
+        {row.company.industry && (
+          <Typography variant="caption" color="text.secondary">
+            {row.company.industry}
+          </Typography>
+        )}
+      </TableCell>
+      <TableCell>
+        <Typography variant="body2">{row.broker.name}</Typography>
+      </TableCell>
+      <TableCell>
+        <Chip
+          label={STATUS_LABEL[row.status]}
+          color={STATUS_COLOR[row.status]}
+          size="small"
+        />
+      </TableCell>
+      <TableCell>
+        <Chip
+          label={row.priority}
+          color={PRIORITY_COLOR[row.priority]}
+          size="small"
+          variant="outlined"
+        />
+      </TableCell>
+      <TableCell align="center">
+        <Typography variant="body2">{row.documentCount}</Typography>
+      </TableCell>
+      <TableCell align="center">
+        <Typography variant="body2">{row.noteCount}</Typography>
+      </TableCell>
+      <TableCell sx={{ maxWidth: 220 }}>
+        {row.latestNote ? (
+          <Box>
+            <Typography variant="caption" fontWeight={500} display="block">
+              {row.latestNote.authorName}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              display="block"
+              sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {row.latestNote.bodyPreview}
+            </Typography>
+          </Box>
+        ) : (
+          <Typography variant="caption" color="text.disabled">
+            —
+          </Typography>
+        )}
+      </TableCell>
+      <TableCell>
+        <Typography variant="caption" color="text.secondary">
+          {new Date(row.createdAt).toLocaleDateString()}
+        </Typography>
+      </TableCell>
+    </TableRow>
   );
+}
+
+function LoadingRows() {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <TableRow key={i}>
+          {Array.from({ length: 8 }).map((_, j) => (
+            <TableCell key={j}>
+              <Skeleton variant="text" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
+  );
+}
+
+function SubmissionsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const status = (searchParams.get('status') as SubmissionStatus) ?? '';
+  const brokerId = searchParams.get('brokerId') ?? '';
+  const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
+
+  const [companyInput, setCompanyInput] = useState(searchParams.get('companySearch') ?? '');
+  const companyInputRef = useRef(companyInput);
+  companyInputRef.current = companyInput;
+
+  function updateParam(key: string, value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    if (key !== 'page') {
+      params.set('page', '1');
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  // Debounce company search — write to URL 400ms after the user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      const current = companyInputRef.current;
+      if (current) {
+        params.set('companySearch', current);
+      } else {
+        params.delete('companySearch');
+      }
+      params.set('page', '1');
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyInput]);
+
+  const filters = {
+    status: (status as SubmissionStatus) || undefined,
+    brokerId: brokerId || undefined,
+    companySearch: searchParams.get('companySearch') || undefined,
+    page,
+  };
 
   const submissionsQuery = useSubmissionsList(filters);
-  const brokerQuery = useBrokerOptions();
+
+  const totalPages = submissionsQuery.data
+    ? Math.ceil(submissionsQuery.data.count / PAGE_SIZE)
+    : 0;
 
   return (
     <Container maxWidth="lg" sx={{ py: 6 }}>
       <Stack spacing={4}>
         <Box>
-          <Typography variant="h4" component="h1">
+          <Typography variant="h4" component="h1" gutterBottom>
             Submissions
           </Typography>
           <Typography color="text.secondary">
-            Filters update the query parameters and drive backend filtering. Hook these inputs to
-            your API calls when you implement the actual data fetching.
+            {submissionsQuery.data != null
+              ? `${submissionsQuery.data.count} submission${submissionsQuery.data.count !== 1 ? 's' : ''}`
+              : 'Browse incoming broker submissions'}
           </Typography>
         </Box>
 
+        {/* Filters */}
         <Card variant="outlined">
           <CardContent>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -62,7 +226,7 @@ export default function SubmissionsPage() {
                 select
                 label="Status"
                 value={status}
-                onChange={(event) => setStatus(event.target.value as SubmissionStatus | '')}
+                onChange={(e) => updateParam('status', e.target.value)}
                 fullWidth
               >
                 {STATUS_OPTIONS.map((option) => (
@@ -71,50 +235,88 @@ export default function SubmissionsPage() {
                   </MenuItem>
                 ))}
               </TextField>
-              <TextField
-                select
-                label="Broker"
+
+              <BrokerAutocomplete
                 value={brokerId}
-                onChange={(event) => setBrokerId(event.target.value)}
-                fullWidth
-                helperText="Populate options via /api/brokers"
-              >
-                <MenuItem value="">All brokers</MenuItem>
-                {brokerQuery.data?.map((broker) => (
-                  <MenuItem key={broker.id} value={String(broker.id)}>
-                    {broker.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+                onChange={(id) => updateParam('brokerId', id)}
+              />
+
               <TextField
                 label="Company search"
-                value={companyQuery}
-                onChange={(event) => setCompanyQuery(event.target.value)}
+                value={companyInput}
+                onChange={(e) => setCompanyInput(e.target.value)}
                 fullWidth
-                helperText="Send as ?companySearch=..."
+                placeholder="Search by company name…"
               />
             </Stack>
           </CardContent>
         </Card>
 
-        <Card variant="outlined">
-          <CardContent>
-            <Stack spacing={2}>
-              <Typography variant="h6">Submission list</Typography>
-              <Typography color="text.secondary">
-                Hook `submissionsQuery` to render rows, totals, and pagination states. The query is
-                disabled by default so no network calls fire until you enable it.
-              </Typography>
-              <Divider />
-              <Box>
-                <pre style={{ margin: 0, fontSize: 14 }}>
-                  {JSON.stringify({ filters, queryKey: submissionsQuery.queryKey }, null, 2)}
-                </pre>
+        {/* Error state */}
+        {submissionsQuery.isError && (
+          <Alert severity="error">
+            Failed to load submissions. Please refresh the page or try again.
+          </Alert>
+        )}
+
+        {/* Table */}
+        {!submissionsQuery.isError && (
+          <Paper variant="outlined">
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Company</TableCell>
+                    <TableCell>Broker</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Priority</TableCell>
+                    <TableCell align="center">Docs</TableCell>
+                    <TableCell align="center">Notes</TableCell>
+                    <TableCell>Latest Note</TableCell>
+                    <TableCell>Created</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {submissionsQuery.isLoading ? (
+                    <LoadingRows />
+                  ) : submissionsQuery.data?.results.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                        <Typography color="text.secondary">
+                          No submissions match your filters.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    submissionsQuery.data?.results.map((row) => (
+                      <SubmissionRow key={row.id} row={row} />
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            {totalPages > 1 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                <Pagination
+                  count={totalPages}
+                  page={page}
+                  onChange={(_, value) => updateParam('page', String(value))}
+                  color="primary"
+                />
               </Box>
-            </Stack>
-          </CardContent>
-        </Card>
+            )}
+          </Paper>
+        )}
       </Stack>
     </Container>
+  );
+}
+
+export default function SubmissionsPage() {
+  return (
+    <Suspense>
+      <SubmissionsContent />
+    </Suspense>
   );
 }

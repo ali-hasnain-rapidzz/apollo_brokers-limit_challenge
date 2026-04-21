@@ -49,7 +49,7 @@ export default function SubmissionDetailPage() {
             </Typography>
             <Divider sx={{ my: 2 }} />
             <pre style={{ margin: 0, fontSize: 14 }}>
-              {JSON.stringify({ submissionId, queryKey: detailQuery.queryKey }, null, 2)}
+              {JSON.stringify({ submissionId }, null, 2)}
             </pre>
           </CardContent>
         </Card>

@@ -1,5 +1,5 @@
 from django.db.models import Count, OuterRef, Subquery
-from rest_framework import viewsets
+from rest_framework import filters, viewsets
 
 from submissions import models, serializers
 from submissions.filters.submission import SubmissionFilterSet
@@ -33,4 +33,7 @@ class SubmissionViewSet(viewsets.ReadOnlyModelViewSet):
 class BrokerViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = models.Broker.objects.all()
     serializer_class = serializers.BrokerSerializer
+    pagination_class = None
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["name"]
 
