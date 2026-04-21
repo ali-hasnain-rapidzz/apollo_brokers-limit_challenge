@@ -7,8 +7,11 @@ import {
   Box,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   Container,
+  Divider,
+  FormControlLabel,
   MenuItem,
   Pagination,
   Paper,
@@ -155,6 +158,10 @@ function SubmissionsContent() {
 
   const status = (searchParams.get('status') as SubmissionStatus) ?? '';
   const brokerId = searchParams.get('brokerId') ?? '';
+  const hasDocuments = searchParams.get('hasDocuments') === 'true';
+  const hasNotes = searchParams.get('hasNotes') === 'true';
+  const createdFrom = searchParams.get('createdFrom') ?? '';
+  const createdTo = searchParams.get('createdTo') ?? '';
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
 
   const [companyInput, setCompanyInput] = useState(searchParams.get('companySearch') ?? '');
@@ -195,6 +202,10 @@ function SubmissionsContent() {
     status: (status as SubmissionStatus) || undefined,
     brokerId: brokerId || undefined,
     companySearch: searchParams.get('companySearch') || undefined,
+    hasDocuments: hasDocuments || undefined,
+    hasNotes: hasNotes || undefined,
+    createdFrom: createdFrom || undefined,
+    createdTo: createdTo || undefined,
     page,
   };
 
@@ -247,6 +258,45 @@ function SubmissionsContent() {
                 onChange={(e) => setCompanyInput(e.target.value)}
                 fullWidth
                 placeholder="Search by company name…"
+              />
+            </Stack>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+              <TextField
+                label="Created from"
+                type="date"
+                value={createdFrom}
+                onChange={(e) => updateParam('createdFrom', e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{ minWidth: 180 }}
+              />
+              <TextField
+                label="Created to"
+                type="date"
+                value={createdTo}
+                onChange={(e) => updateParam('createdTo', e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{ minWidth: 180 }}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={hasDocuments}
+                    onChange={(e) => updateParam('hasDocuments', e.target.checked ? 'true' : '')}
+                  />
+                }
+                label="Has documents"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={hasNotes}
+                    onChange={(e) => updateParam('hasNotes', e.target.checked ? 'true' : '')}
+                  />
+                }
+                label="Has notes"
               />
             </Stack>
           </CardContent>
