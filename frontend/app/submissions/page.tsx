@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Alert,
@@ -165,8 +165,6 @@ function SubmissionsContent() {
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
 
   const [companyInput, setCompanyInput] = useState(searchParams.get('companySearch') ?? '');
-  const companyInputRef = useRef(companyInput);
-  companyInputRef.current = companyInput;
 
   function updateParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -181,21 +179,11 @@ function SubmissionsContent() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
-  // Debounce company search — write to URL 400ms after the user stops typing
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      const current = companyInputRef.current;
-      if (current) {
-        params.set('companySearch', current);
-      } else {
-        params.delete('companySearch');
-      }
-      params.set('page', '1');
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    }, 400);
+    const timer = setTimeout(() => updateParam('companySearch', companyInput), 400);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // updateParam is redefined each render but its deps (searchParams, router, pathname) are stable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyInput]);
 
   const filters = {

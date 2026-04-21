@@ -7,20 +7,30 @@ import { Broker } from '@/lib/types';
 
 async function fetchBrokers(search: string) {
   const response = await apiClient.get<Broker[]>('/brokers/', {
-    params: search ? { search } : undefined,
+    params: { search },
   });
   return response.data;
 }
 
-// Server-side searched hook — only fetches brokers matching the query string,
-// so the dropdown scales regardless of total broker count without loading everything upfront.
-// TODO (Ali): swap ListboxComponent for a react-window VirtualizedList before final submission
-// to get true DOM-level virtualization on top of the server-side filtering.
+async function fetchBrokerById(id: string) {
+  const response = await apiClient.get<Broker>(`/brokers/${id}/`);
+  return response.data;
+}
+
 export function useBrokerOptions(search = '') {
   return useQuery({
     queryKey: ['brokers', search],
     queryFn: () => fetchBrokers(search),
-    enabled: true,
+    enabled: search.length > 0,
     staleTime: 30_000,
+  });
+}
+
+export function useBrokerById(id: string) {
+  return useQuery({
+    queryKey: ['broker', id],
+    queryFn: () => fetchBrokerById(id),
+    enabled: !!id,
+    staleTime: 60_000,
   });
 }

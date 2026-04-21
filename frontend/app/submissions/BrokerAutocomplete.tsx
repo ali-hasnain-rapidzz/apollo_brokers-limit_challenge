@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Autocomplete, CircularProgress, TextField } from '@mui/material';
 
-import { useBrokerOptions } from '@/lib/hooks/useBrokerOptions';
+import { useBrokerById, useBrokerOptions } from '@/lib/hooks/useBrokerOptions';
 import { Broker } from '@/lib/types';
 
 interface Props {
@@ -11,27 +11,29 @@ interface Props {
   onChange: (brokerId: string) => void;
 }
 
-// Server-side searched autocomplete — fetches only brokers matching the typed query
-// so the list never bloats as broker count grows.
-// TODO (Ali): add react-window ListboxComponent for DOM-level virtualization before final submission.
 export function BrokerAutocomplete({ value, onChange }: Props) {
   const [inputValue, setInputValue] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const inputRef = useRef(inputValue);
-  inputRef.current = inputValue;
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(inputRef.current), 400);
+    const timer = setTimeout(() => setDebouncedSearch(inputValue), 400);
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  const { data: brokers = [], isFetching } = useBrokerOptions(debouncedSearch);
+  const { data: searchResults = [], isFetching } = useBrokerOptions(debouncedSearch);
+  const { data: brokerById } = useBrokerById(value);
 
-  const selected = brokers.find((b) => String(b.id) === value) ?? null;
+  const options = useMemo<Broker[]>(() => {
+    if (!brokerById) return searchResults;
+    const alreadyInResults = searchResults.some((b) => String(b.id) === value);
+    return alreadyInResults ? searchResults : [brokerById, ...searchResults];
+  }, [searchResults, brokerById, value]);
+
+  const selected = options.find((b) => String(b.id) === value) ?? null;
 
   return (
     <Autocomplete<Broker>
-      options={brokers}
+      options={options}
       value={selected}
       inputValue={inputValue}
       onInputChange={(_, newInput) => setInputValue(newInput)}
@@ -45,6 +47,7 @@ export function BrokerAutocomplete({ value, onChange }: Props) {
         <TextField
           {...params}
           label="Broker"
+          placeholder="Search brokers…"
           slotProps={{
             input: {
               ...params.InputProps,
